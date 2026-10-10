@@ -59,11 +59,11 @@ a{color:#0f766e}
     <li>Leave <strong>Open as Web App</strong> turned on, tap <strong>Add</strong>, then open the new <strong>KM Logbook</strong> icon from the Home Screen.</li>
     <li>After the first load, the app shell is cached and the logbook can open without a connection. Use the Home Screen icon for your logbook so it uses the same saved data each time.</li>
   </ol>
-  <div class="callout"><strong>Moving existing records:</strong> the Home Screen app has its own storage and does not automatically inherit records from another browser or an older local copy. Before switching, export a JSON backup from the old logbook. In the installed app, open <strong>Export &amp; backup → Restore from a backup file</strong> and select that JSON file from Files.</div>
+  <div class="callout"><strong>Moving existing records:</strong> the Home Screen app has its own storage and does not automatically inherit records from another browser or an older local copy. Export an Excel (.xlsx) or JSON backup from the old logbook, then use the matching import option in the installed app.</div>
   <h2>3. Save a trip and review your dashboard</h2>
   <ol>
     <li>Open <strong>Add trip</strong>, enter the date, trip type, from/to clients, and either kilometres or odometer readings.</li>
-    <li>Tap <strong>Save trip</strong>. The record is stored on the iPhone. The second save button carries the destination and odometer reading into the next trip leg.</li>
+    <li>Tap <strong>Save trip</strong>. The record is saved automatically on the iPhone and is available when the app is reopened, including after an iPhone restart. The second save button carries the destination and odometer reading into the next trip leg.</li>
     <li>Open <strong>Dashboard</strong>. Choose a financial year and a month. The cards show totals for the selected month or whole financial year; the tables show monthly and daily totals.</li>
     <li>Use <strong>Trip log</strong> to filter individual records by year and month. The logbook uses Australian July–June financial years.</li>
   </ol>
@@ -72,21 +72,21 @@ a{color:#0f766e}
 
 <section class="page">
   <div class="kicker">Backups and files</div>
-  <h2>Keep a backup in Files</h2>
+  <h2>Save and restore an Excel backup</h2>
   <ol>
-    <li>Open <strong>Export &amp; backup</strong> and tap <strong>Download backup file</strong>.</li>
-    <li>In Safari’s download prompt or share sheet, choose <strong>Save to Files</strong>, then save the JSON file somewhere you can find again, such as <strong>On My iPhone</strong> or iCloud Drive.</li>
-    <li>To recover records, use <strong>Restore from a backup file</strong> and choose the JSON file in the iOS file picker. Restoring merges records with the ones already stored.</li>
-    <li>Use the Excel export buttons for a real <span class="code">.xlsx</span> workbook. Save that file to Files or open it in a spreadsheet app.</li>
+    <li>Open <strong>Export &amp; backup</strong> and tap <strong>Export all trips (Excel backup)</strong>.</li>
+    <li>When iPhone asks where to save the workbook, choose <strong>Save to Files</strong>, then select <strong>On My iPhone</strong> or iCloud Drive.</li>
+    <li>To restore it, choose <strong>Import trips from an Excel backup (.xlsx)</strong> and select the workbook from Files. The app merges trips and skips duplicate rows.</li>
+    <li>The optional JSON backup and restore are still available below the Excel controls.</li>
   </ol>
-  <div class="callout"><strong>Back up regularly.</strong> iOS may remove website storage under some conditions, and removing the Home Screen app or its website data can remove its local records. A backup in Files is the recovery copy.</div>
+  <div class="good"><strong>Automatic local saving:</strong> trips are saved in the app and loaded again when you reopen it, even after restarting the iPhone. Saving a separate Excel workbook to Files is a manual backup step in Safari. Keep one in Files or iCloud Drive in case app data is cleared or the app is removed.</div>
   <h3>If the app does not open offline</h3>
   <ul>
     <li>Open the HTTPS address in Safari once while connected, wait for the page to finish loading, then reopen the Home Screen icon.</li>
     <li>Check that the static host serves <span class="code">service-worker.js</span>, <span class="code">manifest.webmanifest</span>, and the files under <span class="code">icons</span> from the same folder as the app.</li>
     <li>Do not clear Safari website data for the app’s address. If the files have changed, reopen the address while online to receive the updated app.</li>
   </ul>
-  <p class="small">Apple’s documented flow is Safari → open a website → Share → Add to Home Screen. Storage is local to the web app origin; keep a separate JSON backup.</p>
+  <p class="small">Apple’s documented flow is Safari → open a website → Share → Add to Home Screen. App data is local to the web app origin; keep a separate Excel or JSON backup.</p>
   <div class="footer"><span>Client KM Logbook · Setup guide</span><span>3 / 3</span></div>
 </section>
 </body>

@@ -160,13 +160,15 @@ nav button.on{background:var(--accent);color:#fff}
 <p>Downloads a .xlsx workbook with one table, a header row, and one row per trip. You can filter and sort by date, trip type, client, or other columns.</p>
 <button class="btn" id="expFY">Export selected financial year</button>
 <button class="btn alt" id="expMo">Export the month shown in Trip log</button>
-<button class="btn alt" id="expAll">Export all trips</button>
+<button class="btn alt" id="expAll">Export all trips (Excel backup)</button>
+<div style="margin-top:12px"><label for="xlsxUp">Import trips from an Excel backup (.xlsx)</label><input id="xlsxUp" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"></div>
+<p class="note">Choose an Excel file exported by this logbook. Imported trips are merged with this iPhone's records; duplicate rows are skipped.</p>
 
-<h3 class="sub">Backup file</h3>
-<p class="note">Download a JSON backup and save it in the iPhone Files app. To restore data, choose the backup file below. Restoring merges it with trips already on this device.</p>
+<h3 class="sub">Optional JSON backup</h3>
+<p class="note">JSON backups remain available as an additional restore option. Restoring merges them with trips already on this device.</p>
 <button class="btn alt" id="bkDl">Download backup file</button>
-<div style="margin-top:12px"><label>Restore from a backup file</label><input id="bkUp" type="file" accept=".json,application/json"></div>
-<p class="note">Trips are saved on this iPhone and are available when you reopen the Home Screen app. Back up regularly: deleting the Home Screen app or clearing its website data can remove locally saved trips.</p>
+<div style="margin-top:12px"><label for="bkUp">Restore from a JSON backup file</label><input id="bkUp" type="file" accept=".json,application/json"></div>
+<p class="note">Trips save automatically on this iPhone and load when you reopen the Home Screen app, including after a restart. Keep an Excel backup in Files or iCloud Drive in case app data is removed.</p>
 </section>
 
 </main>
@@ -391,6 +393,90 @@ $('expFY').onclick=function(){exportXlsx(tripsFor(selFY()),'km-logbook-'+selFY()
 $('expMo').onclick=function(){var mo=$('moSel').value||'all';exportXlsx(shownTrips(tripsFor(selFY())),'km-logbook-'+(mo==='all'?selFY():mo)+'.xlsx');};
 $('expAll').onclick=function(){exportXlsx(S.trips,'km-logbook-all.xlsx');};
 
+/* Import an Excel backup (OOXML .xlsx) without a server-side library. */
+function readXlsxParts(file){
+return file.arrayBuffer().then(async function(buffer){
+var bytes=new Uint8Array(buffer),view=new DataView(buffer),eocd=-1;
+for(var i=bytes.length-22;i>=Math.max(0,bytes.length-65557);i--){if(view.getUint32(i,true)===0x06054b50){eocd=i;break;}}
+if(eocd<0)throw new Error('This is not a readable .xlsx workbook.');
+var count=view.getUint16(eocd+10,true),offset=view.getUint32(eocd+16,true),entries={};
+var decoder=new TextDecoder();
+for(var n=0,p=offset;n<count;n++){
+if(view.getUint32(p,true)!==0x02014b50)throw new Error('The Excel workbook is damaged or uses an unsupported format.');
+var method=view.getUint16(p+10,true),compressedSize=view.getUint32(p+20,true),nameLen=view.getUint16(p+28,true),extraLen=view.getUint16(p+30,true),commentLen=view.getUint16(p+32,true),localOffset=view.getUint32(p+42,true);
+var name=decoder.decode(bytes.subarray(p+46,p+46+nameLen));entries[name]={method:method,size:compressedSize,offset:localOffset};p+=46+nameLen+extraLen+commentLen;
+}
+async function textPart(name,optional){
+var entry=entries[name];if(!entry){if(optional)return null;throw new Error('The Excel workbook is missing '+name+'.');}
+var at=entry.offset;if(view.getUint32(at,true)!==0x04034b50)throw new Error('The Excel workbook is damaged.');
+var nameLen=view.getUint16(at+26,true),extraLen=view.getUint16(at+28,true),start=at+30+nameLen+extraLen,packed=bytes.subarray(start,start+entry.size),raw;
+if(entry.method===0)raw=packed;
+else if(entry.method===8){if(!window.DecompressionStream)throw new Error('This Safari version cannot read compressed Excel files. Please update iOS, or use the JSON backup option.');var stream=new Blob([packed]).stream().pipeThrough(new DecompressionStream('deflate-raw'));raw=new Uint8Array(await new Response(stream).arrayBuffer());}
+else throw new Error('This Excel workbook uses a compression type this app cannot read.');
+return decoder.decode(raw);
+}
+return {textPart:textPart};
+});
+}
+function xmlPart(text,name){var doc=new DOMParser().parseFromString(text,'application/xml');if(doc.getElementsByTagName('parsererror').length)throw new Error('The Excel workbook contains unreadable '+name+' data.');return doc;}
+function pathJoin(base,target){var bits=(target.charAt(0)==='/'?target.slice(1):base.slice(0,base.lastIndexOf('/')+1)+target).split('/'),out=[];bits.forEach(function(b){if(!b||b==='.')return;if(b==='..')out.pop();else out.push(b);});return out.join('/');}
+function xmlTextNodes(node){var ts=node.getElementsByTagNameNS('*','t'),s='';for(var i=0;i<ts.length;i++)s+=ts[i].textContent||'';return s;}
+function xmlCells(doc,shared){var ns='http://schemas.openxmlformats.org/spreadsheetml/2006/main',rows=doc.getElementsByTagNameNS(ns,'row'),out=[];
+for(var ri=0;ri<rows.length;ri++){var cells=rows[ri].getElementsByTagNameNS(ns,'c'),row=[];for(var ci=0;ci<cells.length;ci++){
+var cell=cells[ci],ref=cell.getAttribute('r')||'',letters=(ref.match(/^[A-Z]+/i)||['A'])[0].toUpperCase(),col=0;for(var z=0;z<letters.length;z++)col=col*26+letters.charCodeAt(z)-64;col--;
+var type=cell.getAttribute('t')||'',valNode=cell.getElementsByTagNameNS(ns,'v')[0],value=valNode?valNode.textContent:'';
+if(type==='inlineStr'){var is=cell.getElementsByTagNameNS(ns,'is')[0];value=is?xmlTextNodes(is):'';}
+else if(type==='s')value=shared[Number(value)]==null?'':shared[Number(value)];
+else if(type==='b')value=value==='1';
+else if(type==='str')value=value||'';
+row[col]=value;
+}out.push(row);}
+return out;}
+function headerKey(v){return String(v==null?'':v).toLowerCase().replace(/[^a-z0-9]/g,'');}
+function findColumn(headers,aliases){for(var i=0;i<headers.length;i++)if(aliases.indexOf(headerKey(headers[i]))>=0)return i;return -1;}
+function xlsxNumber(v){if(v==null||String(v).trim()==='')return null;if(typeof v==='number')return isFinite(v)?v:null;var s=String(v).trim().replace(/[\s$£€]/g,'');if(s.indexOf(',')>=0&&s.indexOf('.')<0){if(/,\d{1,2}$/.test(s))s=s.replace(',','.');else s=s.replace(/,/g,'');}else s=s.replace(/,/g,'');var n=Number(s);return isFinite(n)?n:null;}
+function xlsxDate(v){
+if(typeof v==='number'||/^\d+(?:\.\d+)?$/.test(String(v||'').trim())){var serial=Number(v);if(serial>0&&serial<2958466){var d=new Date(Date.UTC(1899,11,30)+Math.floor(serial)*86400000);return d.getUTCFullYear()+'-'+p2(d.getUTCMonth()+1)+'-'+p2(d.getUTCDate());}}
+var s=String(v==null?'':v).trim(),m=/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/.exec(s);if(m){var y=+m[1],mo=+m[2],day=+m[3];if(y>1900&&mo>=1&&mo<=12&&day>=1&&day<=31)return y+'-'+p2(mo)+'-'+p2(day);}
+m=/^(\d{1,2})[/. -](\d{1,2})[/. -](\d{4})$/.exec(s);if(m){var dd=+m[1],mm=+m[2],yy=+m[3];if(dd>=1&&dd<=31&&mm>=1&&mm<=12)return yy+'-'+p2(mm)+'-'+p2(dd);}
+return '';
+}
+function xlsxTime(v){if(typeof v==='number'||/^\d+(?:\.\d+)?$/.test(String(v||'').trim())){var n=Number(v),frac=n-Math.floor(n);if(frac>=0&&frac<1){var mins=Math.round(frac*1440)%1440;return p2(Math.floor(mins/60))+':'+p2(mins%60);}}
+var s=String(v==null?'':v).trim(),m=/^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(s);if(m&&+m[1]<24&&+m[2]<60)return p2(+m[1])+':'+m[2];
+m=/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i.exec(s);if(m){var h=+m[1]%12;if(m[3].toUpperCase()==='PM')h+=12;return p2(h)+':'+m[2];}return s;
+}
+function tripSignature(t){return JSON.stringify([t.date,t.time||'',t.type||'',t.from||'',t.fromAddr||'',t.to||'',t.toAddr||'',t.note||'',t.odoStart,t.odoEnd,t.km]);}
+function tripHash(s){var h=2166136261;for(var i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return (h>>>0).toString(36);}
+async function parseExcelTrips(file){
+var zip=await readXlsxParts(file),wb=xmlPart(await zip.textPart('xl/workbook.xml'),'workbook'),ns='http://schemas.openxmlformats.org/spreadsheetml/2006/main',rns='http://schemas.openxmlformats.org/officeDocument/2006/relationships',pns='http://schemas.openxmlformats.org/package/2006/relationships';
+var sheets=wb.getElementsByTagNameNS(ns,'sheet');if(!sheets.length)throw new Error('No worksheet was found in this Excel file.');
+var rid=sheets[0].getAttributeNS(rns,'id')||sheets[0].getAttribute('r:id'),rels=xmlPart(await zip.textPart('xl/_rels/workbook.xml.rels'),'workbook relationships'),relNodes=rels.getElementsByTagNameNS(pns,'Relationship'),target='';
+for(var i=0;i<relNodes.length;i++)if(relNodes[i].getAttribute('Id')===rid){target=relNodes[i].getAttribute('Target');break;}
+if(!target)throw new Error('The Excel worksheet link could not be read.');
+var sheetPath=pathJoin('xl/workbook.xml',target),shared=[],ss=await zip.textPart('xl/sharedStrings.xml',true);if(ss){var ssDoc=xmlPart(ss,'shared strings'),items=ssDoc.getElementsByTagNameNS(ns,'si');for(var si=0;si<items.length;si++)shared.push(xmlTextNodes(items[si]));}
+var sheetDoc=xmlPart(await zip.textPart(sheetPath),'worksheet'),matrix=xmlCells(sheetDoc,shared),headerAt=-1,cols={};
+var aliases={date:['date','tripdate'],time:['time','triptime'],type:['triptype','type'],from:['fromclient','from'],fromAddr:['fromaddress','fromaddr'],to:['toclient','to'],toAddr:['toaddress','toaddr'],note:['purpose','notes','reason'],odoStart:['odometerstart','startodometer'],odoEnd:['odometerend','endodometer'],km:['km','kilometres','kilometers','distancekm'],rate:['rateperkm','rateperkilometre','rateperkilometer']};
+for(var hr=0;hr<Math.min(matrix.length,30);hr++){var found={};Object.keys(aliases).forEach(function(k){found[k]=findColumn(matrix[hr]||[],aliases[k]);});if(found.date>=0&&found.km>=0&&(found.type>=0||found.from>=0||found.to>=0||found.note>=0)){headerAt=hr;cols=found;break;}}
+if(headerAt<0)throw new Error('This workbook does not contain the logbook columns. Choose an .xlsx file exported by Client KM Logbook.');
+var trips=[],rates=[],clientMap={};
+for(var ri=headerAt+1;ri<matrix.length;ri++){var row=matrix[ri]||[],date=xlsxDate(row[cols.date]),km=xlsxNumber(row[cols.km]);if(!date||km==null)continue;
+var typ=cols.type>=0?String(row[cols.type]||'').trim():'',low=typ.toLowerCase();if(low.indexOf('between client')>=0)typ=TYPES[1];else if(low.indexOf('travel between jobs')>=0||low.indexOf('between jobs')>=0)typ=TYPES[2];else if(low.indexOf('with client')>=0)typ=TYPES[0];
+var trip={date:date,time:cols.time>=0?xlsxTime(row[cols.time]):'',type:typ||'No type set',from:cols.from>=0?String(row[cols.from]||'').trim():'',fromAddr:cols.fromAddr>=0?String(row[cols.fromAddr]||'').trim():'',to:cols.to>=0?String(row[cols.to]||'').trim():'',toAddr:cols.toAddr>=0?String(row[cols.toAddr]||'').trim():'',note:cols.note>=0?String(row[cols.note]||'').trim():'',odoStart:cols.odoStart>=0?xlsxNumber(row[cols.odoStart]):null,odoEnd:cols.odoEnd>=0?xlsxNumber(row[cols.odoEnd]):null,km:Math.round(km*10)/10,calcS:false,calcE:false};
+[[trip.from,trip.fromAddr],[trip.to,trip.toAddr]].forEach(function(pair){var name=String(pair[0]||'').trim(),key=name.toLowerCase();if(name&&(!clientMap[key]||(!clientMap[key].address&&pair[1])))clientMap[key]={name:name,address:pair[1]||'',mod:0};});
+if(cols.rate>=0){var rate=xlsxNumber(row[cols.rate]);if(rate!=null)rates.push({date:date,rate:rate});}trips.push(trip);
+}
+if(!trips.length)throw new Error('No trip rows with a valid date and kilometre value were found.');
+var seen={},latest=null,baseMod=Date.now();trips.forEach(function(t,index){var sig=tripSignature(t),occ=seen[sig]||0;seen[sig]=occ+1;t.id='xlsx-'+tripHash(sig)+'-'+occ;t.mod=baseMod+index;});
+rates.forEach(function(r){if(!latest||r.date>=latest.date)latest=r;});
+return {trips:trips,clients:Object.keys(clientMap).map(function(k){return clientMap[k];}),rate:latest?latest.rate:null};
+}
+$('xlsxUp').onchange=function(){var f=this.files&&this.files[0];if(!f)return;var input=this;parseExcelTrips(f).then(function(result){
+var count=S.trips.length,existing={},toMerge=[];S.trips.forEach(function(t){var sig=tripSignature(t);existing[sig]=(existing[sig]||0)+1;});
+result.trips.forEach(function(t){var sig=tripSignature(t);if(existing[sig])existing[sig]--;else toMerge.push(t);});
+var restoredRate=count===0?result.rate:null;merge({trips:toMerge,clients:result.clients,rate:restoredRate,rateAt:restoredRate==null?0:Date.now()});save();render();var added=S.trips.length-count;
+alert(added?'Excel import complete. '+added+' new trip'+(added===1?' was':'s were')+' added; duplicate rows were skipped.':'Excel import complete. All trips were already on this iPhone, so no duplicates were added.');
+}).catch(function(e){alert(e&&e.message?e.message:'Could not read this Excel file.');}).finally(function(){input.value='';});};
+
 /* Merge another copy of the logbook (from Drive or a backup file) into this one */
 function merge(r){
 if(!r)return;
@@ -434,7 +520,7 @@ rd.readAsText(f);this.value='';
 if('serviceWorker' in navigator&&location.protocol==='https:'){
 window.addEventListener('load',function(){navigator.serviceWorker.register('./service-worker.js').catch(function(){});});
 }
-if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();
+if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(function(){});
 render();
 idbGet(function(v){try{var o=v&&JSON.parse(v);if(o&&o.trips){merge(o);save();render();}}catch(e){}});
 })();

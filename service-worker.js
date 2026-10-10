@@ -1,4 +1,4 @@
-const CACHE_NAME = "client-km-logbook-v1";
+const CACHE_NAME = "client-km-logbook-v2";
 const APP_FILES = [
   "./index.html",
   "./manifest.webmanifest",

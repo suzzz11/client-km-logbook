@@ -4,7 +4,7 @@ An offline-capable static Home Screen web app for iPhone. It has no server-side 
 
 ## Files
 
-- `index.html` — logbook, trip entry, dashboard, JSON backup/restore, and Excel workbook export.
+- `index.html` — logbook, trip entry, dashboard, automatic local saving, JSON backup/restore, and Excel workbook export/import.
 - `manifest.webmanifest` — Home Screen app name, display mode, and icons.
 - `service-worker.js` — caches the app shell for offline use.
 - `icons/` — Home Screen and browser icons.
@@ -18,4 +18,6 @@ Upload the contents of this folder as-is. `index.html`, `manifest.webmanifest`, 
 
 ## Local data and backups
 
-The app saves records to IndexedDB and local storage for its web app origin. Keep regular JSON backups in the iPhone Files app. Restoring a backup merges it with records already stored in the app. Safari storage can be cleared by the user or removed by iOS under storage pressure, so a backup is the durable copy.
+The app saves records to IndexedDB and local storage for its web app origin, then reloads them when reopened. The app also requests persistent storage from Safari. Export all trips to `.xlsx` for a spreadsheet backup; choose that workbook under **Import trips from an Excel backup** to restore. Imports merge with existing records and skip duplicate rows. JSON backup/restore remains available as an optional alternative.
+
+Keep an exported workbook in the iPhone Files app or iCloud Drive for recovery. Safari website data can still be cleared by the user or removed by iOS, so a separate file is the durable backup. Excel export/import uses the logbook's `.xlsx` format; legacy `.xls` files are not supported.

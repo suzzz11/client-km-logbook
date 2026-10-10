@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="KM Logbook">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#0f766e">
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+<link rel="manifest" href="./manifest.webmanifest">
+<title>Client Km Logbook</title>
+<style>
+:root{--bg:#f5f6f8;--card:#fff;--text:#1f2933;--muted:#64748b;--accent:#0f766e;--line:#e2e8f0;--danger:#b91c1c}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12161b;--card:#1b2128;--text:#e6eaee;--muted:#94a3b8;--accent:#2dd4bf;--line:#2c3540;--danger:#f87171}}
+:root[data-theme="dark"]{--bg:#12161b;--card:#1b2128;--text:#e6eaee;--muted:#94a3b8;--accent:#2dd4bf;--line:#2c3540;--danger:#f87171}
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--text)}
+header{padding:20px 16px 8px;max-width:960px;margin:auto}
+h1{margin:0;font-size:1.5rem}
+header p{margin:4px 0 0;color:var(--muted);font-size:.9rem}
+nav{max-width:960px;margin:auto;padding:8px 16px;display:flex;gap:6px;flex-wrap:wrap}
+nav button{border:1px solid var(--line);background:var(--card);color:var(--text);padding:8px 14px;border-radius:20px;cursor:pointer;font-size:.9rem}
+nav button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+main{max-width:960px;margin:auto;padding:8px 16px 40px}
+section{display:none;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px}
+section.on{display:block}
+h2{margin-top:0;font-size:1.15rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+label{display:block;font-size:.8rem;color:var(--muted);margin-bottom:3px}
+input,select,textarea{width:100%;min-height:44px;font-size:16px;padding:9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--text);font:inherit}
+.btn{background:var(--accent);color:#fff;border:0;min-height:46px;padding:11px 18px;border-radius:8px;cursor:pointer;font:inherit;margin-top:12px}
+.btn.alt{background:transparent;color:var(--accent);border:1px solid var(--accent)}
+.stat{background:var(--bg);border-radius:10px;padding:14px}
+.stat b{display:block;font-size:1.5rem}
+.stat span{color:var(--muted);font-size:.8rem}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.88rem}
+th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);white-space:nowrap}
+td.wrap{white-space:normal;min-width:140px}
+.del{background:none;border:0;color:var(--danger);cursor:pointer}
+.note{color:var(--muted);font-size:.82rem;margin-top:10px}
+.warn{color:var(--danger);font-size:.85rem;margin-top:8px}
+h3.sub{margin:22px 0 8px;font-size:1rem}
+#export input[type=file]{padding:9px}
+
+@media (max-width:700px){
+body{-webkit-text-size-adjust:100%}
+main{padding:8px 12px 110px}
+section{padding:14px}
+.grid{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
+.btn{width:100%;margin-top:10px}
+nav{position:fixed;left:0;right:0;bottom:0;max-width:none;margin:0;gap:4px;padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px));background:var(--card);border-top:1px solid var(--line);z-index:10;flex-wrap:nowrap}
+nav button{flex:1;min-height:48px;padding:4px 2px;border-radius:10px;font-size:.72rem;border:0;background:transparent}
+nav button.on{background:var(--accent);color:#fff}
+#log .scroll{overflow:visible}
+#log table,#log tbody,#log tr,#log td{display:block;width:100%}
+#log thead{display:none}
+#log tr{border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-bottom:10px}
+#log td{border:0;padding:4px 0;white-space:normal;display:flex;justify-content:space-between;gap:12px;text-align:right}
+#log td[data-l]::before{content:attr(data-l);color:var(--muted);text-align:left;flex:none}
+#log td .del{padding:10px 0}
+}
+</style>
+</head>
+<body>
+<header>
+<h1>Client Km Logbook</h1>
+<p>Record your client km, travel between clients and travel between jobs, then export to Excel for your tax return.</p>
+</header>
+<nav id="nav">
+<button data-s="dash" class="on">Summary</button>
+<button data-s="add">Add trip</button>
+<button data-s="clients">Clients</button>
+<button data-s="log">Trip log</button>
+<button data-s="export">Export &amp; backup</button>
+</nav>
+<main>
+
+<section id="dash" class="on">
+<h2>Dashboard</h2>
+<div class="grid" style="max-width:520px;margin-bottom:14px">
+<div><label for="dashFY">Financial year</label><select id="dashFY"></select></div>
+<div><label for="dashMo">Month</label><select id="dashMo"></select></div>
+</div>
+<div class="grid">
+<div class="stat"><b id="sFY">-</b><span>Selected period</span></div>
+<div class="stat"><b id="sKm">0</b><span>Km travelled</span></div>
+<div class="stat"><b id="sAmt">$0.00</b><span>Estimated claim</span></div>
+<div class="stat"><b id="sTrips">0</b><span>Trips recorded</span></div>
+</div>
+<h3 class="sub">Km by trip type (selected period)</h3>
+<div class="grid">
+<div class="stat"><b id="sWith">0 km</b><span>With client</span></div>
+<div class="stat"><b id="sBetC">0 km</b><span>Between clients</span></div>
+<div class="stat"><b id="sBetJ">0 km</b><span>Travel between jobs</span></div>
+</div>
+<div id="capWarn" class="warn"></div>
+<div id="bkWarn" class="warn"></div>
+<h3 class="sub">Month by month</h3>
+<div class="scroll"><table><thead><tr><th>Month</th><th>With client</th><th>Between clients</th><th>Travel between jobs</th><th>Total km</th><th>Claim</th></tr></thead><tbody id="mBody"></tbody></table></div>
+<h3 class="sub">Day by day</h3>
+<p id="dailyCaption" class="note"></p>
+<div class="scroll"><table><thead><tr><th>Date</th><th>Trips</th><th>Total km</th><th>Estimated claim</th></tr></thead><tbody id="dBody"></tbody></table></div>
+<div style="max-width:240px;margin-top:16px">
+<label for="rate">Rate per km ($)</label>
+<input id="rate" type="number" step="0.01" min="0" value="0.88">
+</div>
+<p class="note">Check the current ATO cents-per-km rate and its 5,000 km yearly cap on ato.gov.au, then update the rate above. Travel between home and a regular workplace is generally not claimable, but travel between clients usually is. Keep your own notes of what each trip was for. Which of the three types you can claim depends on your situation (for example, km that your employer or a client already reimburses can't be claimed again), so check with the ATO or your tax agent.</p>
+</section>
+
+<section id="add">
+<h2>Add a trip</h2>
+<div class="grid">
+<div><label>Date (blank = today)</label><input id="tDate" type="date"></div>
+<div><label>Time (blank = now)</label><input id="tTime" type="time"></div>
+<div><label>Trip type</label><select id="tType"><option>With client</option><option>Between clients</option><option>Travel between jobs</option></select></div>
+<div><label>From (client)</label><input id="tFrom" list="clientList" placeholder="Client A"></div>
+<div><label>From address</label><input id="tFromAddr"></div>
+<div><label>To (client)</label><input id="tTo" list="clientList" placeholder="Client B"></div>
+<div><label>To address</label><input id="tToAddr"></div>
+<div><label>Odometer start (car)</label><input id="tOdoS" type="number" step="0.1" min="0"></div>
+<div><label>Odometer end (car, at arrival)</label><input id="tOdoE" type="number" step="0.1" min="0"></div>
+<div><label>Km travelled (worked out for you)</label><input id="tKm" type="number" step="0.1" min="0"></div>
+</div>
+<div id="odoMsg" class="warn"></div>
+<div style="margin-top:12px"><label>Purpose / notes</label><input id="tNote" placeholder="e.g. Client visit"></div>
+<datalist id="clientList"></datalist>
+<button class="btn" id="addTrip">Save trip</button>
+<button class="btn alt" id="chain">Save and start next leg from this client</button>
+<p class="note">Leave the date or time blank and it records when you save. Type your odometer start and end and the km is worked out for you. If you forgot the start reading, enter the end reading and the km, and the start is worked out (end minus km). If you only have the start and km, the end is worked out. Calculated readings show a * in the log. For A to B to C to D, save each leg as its own trip. The second button copies the "To" client and the end odometer into the next leg.</p>
+</section>
+
+<section id="clients">
+<h2>Clients</h2>
+<div class="grid">
+<div><label>Client name</label><input id="cName"></div>
+<div><label>Address</label><input id="cAddr"></div>
+</div>
+<button class="btn" id="addClient">Add client</button>
+<div class="scroll" style="margin-top:14px"><table><thead><tr><th>Name</th><th>Address</th><th></th></tr></thead><tbody id="cBody"></tbody></table></div>
+</section>
+
+<section id="log">
+<h2>Trip log</h2>
+<div class="grid" style="max-width:520px;margin-bottom:12px">
+<div><label>Show financial year</label><select id="fySel"></select></div>
+<div><label>Show month</label><select id="moSel"></select></div>
+</div>
+<div class="scroll"><table><thead><tr><th>Date</th><th>Time</th><th>Type</th><th>From</th><th>To</th><th>Purpose</th><th>Odometer</th><th>Km</th><th>Claim</th><th></th></tr></thead><tbody id="lBody"></tbody></table></div>
+<p id="lTotal" class="note"></p>
+</section>
+
+<section id="export">
+<h2>Export &amp; backup</h2>
+<p id="stStatus" class="note"></p>
+<h3 class="sub">Excel</h3>
+<p>Downloads a .xlsx workbook with one table, a header row, and one row per trip. You can filter and sort by date, trip type, client, or other columns.</p>
+<button class="btn" id="expFY">Export selected financial year</button>
+<button class="btn alt" id="expMo">Export the month shown in Trip log</button>
+<button class="btn alt" id="expAll">Export all trips</button>
+
+<h3 class="sub">Backup file</h3>
+<p class="note">Download a JSON backup and save it in the iPhone Files app. To restore data, choose the backup file below. Restoring merges it with trips already on this device.</p>
+<button class="btn alt" id="bkDl">Download backup file</button>
+<div style="margin-top:12px"><label>Restore from a backup file</label><input id="bkUp" type="file" accept=".json,application/json"></div>
+<p class="note">Trips are saved on this iPhone and are available when you reopen the Home Screen app. Back up regularly: deleting the Home Screen app or clearing its website data can remove locally saved trips.</p>
+</section>
+
+</main>
+<script>
+(function(){
+var KEY='kmLogbookV1';
+var TYPES=['With client','Between clients','Travel between jobs'];
+var TITLES=['KM WITH CLIENT','KM BETWEEN CLIENTS','TRAVEL BETWEEN JOBS'];
+var S={clients:[],trips:[],rate:0.88,rateAt:0,deleted:{},delClients:{}};
+try{var raw=localStorage.getItem(KEY);if(raw){var p=JSON.parse(raw);if(p&&p.trips)S=p;}}catch(e){}
+S.clients=S.clients||[];S.trips=S.trips||[];
+if(typeof S.rate!=='number')S.rate=0.88;
+S.rateAt=S.rateAt||0;S.deleted=S.deleted||{};S.delClients=S.delClients||{};
+S.trips.forEach(function(t){if(t.type==='Between jobs with clients')t.type=TYPES[2];});
+function idb(cb){try{var q=indexedDB.open('kmLogbook',1);q.onupgradeneeded=function(){q.result.createObjectStore('s');};q.onsuccess=function(){cb(q.result);};}catch(e){}}
+function idbSet(v){idb(function(db){try{var t=db.transaction('s','readwrite');t.objectStore('s').put(v,'state');t.oncomplete=function(){db.close();};}catch(e){}});}
+function idbGet(cb){idb(function(db){try{var r=db.transaction('s').objectStore('s').get('state');r.onsuccess=function(){cb(r.result);db.close();};}catch(e){}});}
+function save(){var j=JSON.stringify(S);try{localStorage.setItem(KEY,j);}catch(e){}idbSet(j);}
+function $(id){return document.getElementById(id);}
+function esc(s){var d=document.createElement('div');d.textContent=s==null?'':s;return d.innerHTML;}
+function fyOf(ds){var d=new Date(ds+'T00:00:00');var y=d.getFullYear();return d.getMonth()>=6?y+'-'+String(y+1).slice(2):(y-1)+'-'+String(y).slice(2);}
+function p2(n){return String(n).padStart(2,'0');}
+function today(){var d=new Date();return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate());}
+function nowTime(){var d=new Date();return p2(d.getHours())+':'+p2(d.getMinutes());}
+function odoTxt(t){if(t.odoStart==null&&t.odoEnd==null)return '';return (t.odoStart==null?'?':t.odoStart+(t.calcS?'*':''))+' to '+(t.odoEnd==null?'?':t.odoEnd+(t.calcE?'*':''));}
+function curFY(){return fyOf(today());}
+function money(n){return '$'+n.toFixed(2);}
+function findClient(n){n=(n||'').trim().toLowerCase();return S.clients.filter(function(c){return c.name.toLowerCase()===n;})[0];}
+
+document.querySelectorAll('#nav button').forEach(function(b){
+b.onclick=function(){
+document.querySelectorAll('#nav button').forEach(function(x){x.classList.remove('on');});
+document.querySelectorAll('section').forEach(function(x){x.classList.remove('on');});
+b.classList.add('on');$(b.dataset.s).classList.add('on');render();window.scrollTo(0,0);};
+});
+
+$('rate').value=S.rate;
+$('rate').onchange=function(){S.rate=parseFloat(this.value)||0;S.rateAt=Date.now();save();render();};
+
+function fillAddr(nameId,addrId){
+$(nameId).onchange=function(){var c=findClient(this.value);if(c)$(addrId).value=c.address;};
+}
+fillAddr('tFrom','tFromAddr');fillAddr('tTo','tToAddr');
+
+function ensureClient(name,addr){
+name=(name||'').trim();if(!name)return;
+var c=findClient(name);
+if(!c){S.clients.push({name:name,address:(addr||'').trim(),mod:Date.now()});}
+else if(!c.address&&addr){c.address=addr.trim();c.mod=Date.now();}
+}
+
+/* Odometer: km is worked out as you type */
+function autoKm(){
+var os=parseFloat($('tOdoS').value),oe=parseFloat($('tOdoE').value);
+var both=!isNaN(os)&&!isNaN(oe);
+$('tKm').readOnly=both;
+$('odoMsg').textContent='';
+if(both){
+if(oe>os){$('tKm').value=Math.round((oe-os)*10)/10;}
+else{$('tKm').value='';$('odoMsg').textContent='The end reading must be higher than the start reading.';}
+}
+}
+$('tOdoS').oninput=autoKm;$('tOdoE').oninput=autoKm;
+
+function addTrip(chain){
+var km=parseFloat($('tKm').value);
+var os=parseFloat($('tOdoS').value),oe=parseFloat($('tOdoE').value);
+os=isNaN(os)?null:os;oe=isNaN(oe)?null:oe;
+if(os!==null&&oe!==null){
+if(oe<=os){alert('The end odometer reading must be higher than the start reading.');return;}
+km=Math.round((oe-os)*10)/10;
+}
+var calcS=false,calcE=false;
+if(km>0){
+if(os===null&&oe!==null){os=Math.round((oe-km)*10)/10;calcS=true;}
+else if(oe===null&&os!==null){oe=Math.round((os+km)*10)/10;calcE=true;}
+}
+if(!$('tFrom').value.trim()||!$('tTo').value.trim()||!(km>0)){alert('Please fill in From, To, and either Km or both odometer readings.');return;}
+var trip={id:Date.now(),mod:Date.now(),date:$('tDate').value||today(),time:$('tTime').value||nowTime(),type:$('tType').value,from:$('tFrom').value.trim(),fromAddr:$('tFromAddr').value.trim(),to:$('tTo').value.trim(),toAddr:$('tToAddr').value.trim(),km:km,odoStart:os,odoEnd:oe,calcS:calcS,calcE:calcE,note:$('tNote').value.trim()};
+var prev=S.trips.filter(function(t){return t.date===trip.date&&(t.time||'')<=trip.time&&t.odoEnd==null;}).sort(function(a,b){return (a.time||'')<(b.time||'')?-1:1;}).pop();
+if(prev&&os!==null){prev.odoEnd=os;prev.calcE=true;prev.mod=Date.now();if(prev.odoStart==null){prev.odoStart=Math.round((os-prev.km)*10)/10;prev.calcS=true;}}
+ensureClient($('tFrom').value,$('tFromAddr').value);
+ensureClient($('tTo').value,$('tToAddr').value);
+S.trips.push(trip);
+save();
+if(chain){$('tFrom').value=$('tTo').value;$('tFromAddr').value=$('tToAddr').value;$('tOdoS').value=trip.odoEnd!==null?trip.odoEnd:'';}
+else{$('tFrom').value='';$('tFromAddr').value='';$('tOdoS').value='';}
+$('tTo').value='';$('tToAddr').value='';$('tKm').value='';$('tOdoE').value='';$('tTime').value='';
+if(!chain)$('tNote').value='';
+autoKm();
+render();
+}
+$('addTrip').onclick=function(){addTrip(false);};
+$('chain').onclick=function(){addTrip(true);};
+
+$('addClient').onclick=function(){
+var n=$('cName').value.trim();if(!n){alert('Enter a client name.');return;}
+ensureClient(n,$('cAddr').value);
+var c=findClient(n);if($('cAddr').value.trim()){c.address=$('cAddr').value.trim();c.mod=Date.now();}
+$('cName').value='';$('cAddr').value='';save();render();
+};
+
+function fys(){
+var set={};set[curFY()]=1;
+S.trips.forEach(function(t){set[fyOf(t.date)]=1;});
+return Object.keys(set).sort().reverse();
+}
+function selFY(){return $('fySel').value||curFY();}
+$('fySel').onchange=render;$('moSel').onchange=render;
+$('dashFY').onchange=render;$('dashMo').onchange=render;
+
+function tripsFor(fy){return S.trips.filter(function(t){return fyOf(t.date)===fy;}).sort(function(a,b){return (a.date+(a.time||''))<(b.date+(b.time||''))?1:-1;});}
+function kmOf(r){return r.reduce(function(a,t){return a+t.km;},0);}
+var MN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function monLabel(m){var p=m.split('-');return MN[+p[1]-1]+' '+p[0];}
+function fyMonths(fy){var y=+(fy||curFY()).slice(0,4),a=[];for(var i=0;i<12;i++){var d=new Date(y,6+i,1);a.push(d.getFullYear()+'-'+p2(d.getMonth()+1));}return a;}
+function shownTrips(tr){var mo=$('moSel').value;return !mo||mo==='all'?tr:tr.filter(function(t){return t.date.slice(0,7)===mo;});}
+function ofType(r,ty){return r.filter(function(t){return t.type===ty;});}
+
+function render(){
+var list=fys(),cur=$('fySel').value,dashCur=$('dashFY').value;
+$('fySel').innerHTML=list.map(function(f){return '<option>'+f+'</option>';}).join('');
+$('fySel').value=list.indexOf(cur)>-1?cur:curFY();
+ $('dashFY').innerHTML=list.map(function(f){return '<option>'+f+'</option>';}).join('');
+$('dashFY').value=list.indexOf(dashCur)>-1?dashCur:curFY();
+var fy=selFY();
+var tr=tripsFor(fy);
+var ml=fyMonths(fy),cm=$('moSel').value;
+$('moSel').innerHTML='<option value="all">Whole year</option>'+ml.slice().reverse().map(function(m){return '<option value="'+m+'">'+monLabel(m)+'</option>';}).join('');
+$('moSel').value=ml.indexOf(cm)>-1?cm:'all';
+var shown=shownTrips(tr),sk=kmOf(shown);
+var dashFY=$('dashFY').value||curFY(),dashYearTrips=tripsFor(dashFY),dashMonths=fyMonths(dashFY),dashMonth=$('dashMo').value;
+$('dashMo').innerHTML='<option value="all">Whole financial year</option>'+dashMonths.slice().reverse().map(function(m){return '<option value="'+m+'">'+monLabel(m)+'</option>';}).join('');
+$('dashMo').value=dashMonths.indexOf(dashMonth)>-1?dashMonth:'all';
+dashMonth=$('dashMo').value;
+var periodTrips=dashMonth==='all'?dashYearTrips:dashYearTrips.filter(function(t){return t.date.slice(0,7)===dashMonth;});
+var periodLabel=dashMonth==='all'?'Financial year '+dashFY:monLabel(dashMonth);
+var periodKm=kmOf(periodTrips),yearKm=kmOf(dashYearTrips);
+$('mBody').innerHTML=dashMonths.map(function(m){var r=dashYearTrips.filter(function(t){return t.date.slice(0,7)===m;});return '<tr><td>'+monLabel(m)+'</td><td>'+kmOf(ofType(r,TYPES[0])).toFixed(1)+'</td><td>'+kmOf(ofType(r,TYPES[1])).toFixed(1)+'</td><td>'+kmOf(ofType(r,TYPES[2])).toFixed(1)+'</td><td>'+kmOf(r).toFixed(1)+'</td><td>'+money(kmOf(r)*S.rate)+'</td></tr>';}).join('');
+var byDay={};periodTrips.forEach(function(t){if(!byDay[t.date])byDay[t.date]={trips:0,km:0};byDay[t.date].trips++;byDay[t.date].km+=t.km;});
+var days=Object.keys(byDay).sort();
+ $('dailyCaption').textContent='Daily totals for '+periodLabel+'.';
+$('dBody').innerHTML=days.map(function(d){var x=byDay[d];return '<tr><td>'+d+'</td><td>'+x.trips+'</td><td>'+x.km.toFixed(1)+'</td><td>'+money(x.km*S.rate)+'</td></tr>';}).join('')||'<tr><td colspan="4">No trips recorded in this period.</td></tr>';
+$('sFY').textContent=periodLabel;
+$('sKm').textContent=periodKm.toFixed(1);
+$('sAmt').textContent=money(periodKm*S.rate);
+$('sTrips').textContent=periodTrips.length;
+$('sWith').textContent=kmOf(ofType(periodTrips,TYPES[0])).toFixed(1)+' km';
+$('sBetC').textContent=kmOf(ofType(periodTrips,TYPES[1])).toFixed(1)+' km';
+$('sBetJ').textContent=kmOf(ofType(periodTrips,TYPES[2])).toFixed(1)+' km';
+$('capWarn').textContent=yearKm>5000?'Over 5,000 km in this financial year: the cents-per-km method is capped, so consider a logbook method instead.':'';
+$('cBody').innerHTML=S.clients.map(function(c,i){return '<tr><td>'+esc(c.name)+'</td><td class="wrap">'+esc(c.address)+'</td><td><button class="del" data-i="'+i+'">Delete</button></td></tr>';}).join('')||'<tr><td colspan="3">No clients yet.</td></tr>';
+$('clientList').innerHTML=S.clients.map(function(c){return '<option value="'+esc(c.name)+'">';}).join('');
+$('lBody').innerHTML=shown.map(function(t){return '<tr><td data-l="Date">'+t.date+'</td><td data-l="Time">'+esc(t.time||'')+'</td><td data-l="Type">'+esc(t.type||'')+'</td><td data-l="From">'+esc(t.from)+'<br><small>'+esc(t.fromAddr)+'</small></td><td data-l="To">'+esc(t.to)+'<br><small>'+esc(t.toAddr)+'</small></td><td data-l="Purpose">'+esc(t.note)+'</td><td data-l="Odometer">'+odoTxt(t)+'</td><td data-l="Km">'+t.km.toFixed(1)+'</td><td data-l="Claim">'+money(t.km*S.rate)+'</td><td><button class="del" data-t="'+t.id+'">Delete</button></td></tr>';}).join('')||'<tr><td colspan="10">No trips for this year.</td></tr>';
+$('lTotal').textContent='Total shown: '+sk.toFixed(1)+' km, '+money(sk*S.rate)+'.  * = odometer reading calculated from km travelled';
+var lb=0;try{lb=+localStorage.getItem('kmLogbookLastBackup')||0;}catch(e){}
+var ago=Math.floor((Date.now()-lb)/864e5);
+$('bkWarn').textContent=S.trips.length&&(!lb||ago>=7)?(lb?'Your last backup was '+ago+' days ago. ':'You have not saved a backup file yet. ')+'Open Export & backup and download a backup file to keep your trips safe.':'';
+$('stStatus').textContent='Saved on this device: '+S.trips.length+' trips, '+S.clients.length+' clients. '+(lb?'Last backup or export: '+new Date(lb).toLocaleDateString('en-AU')+'.':'No backup downloaded yet.');
+document.querySelectorAll('button[data-i]').forEach(function(b){b.onclick=function(){if(confirm('Delete this client? Existing trips are kept.')){var c=S.clients[+b.dataset.i];if(c)S.delClients[c.name.toLowerCase()]=Date.now();S.clients.splice(+b.dataset.i,1);save();render();}};});
+document.querySelectorAll('button[data-t]').forEach(function(b){b.onclick=function(){if(confirm('Delete this trip?')){S.deleted[b.dataset.t]=1;S.trips=S.trips.filter(function(t){return String(t.id)!==b.dataset.t;});save();render();}};});
+}
+
+/* Export: a real Excel workbook with one row per trip */
+function saveFile(name,text,mime,bom){
+try{localStorage.setItem('kmLogbookLastBackup',String(Date.now()));}catch(e){}
+var data=(bom?'\ufeff':'')+text;
+function fallback(){var b=new Blob([data],{type:mime});var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();a.remove();}
+if(window.claude&&window.claude.use){
+window.claude.use('downloads').then(function(d){
+if(!d){fallback();return;}
+d.save({filename:name,data:data}).catch(function(e){if(!e||e.code!=='declined')alert('Could not save the file here. Try opening the page in your phone browser.');});
+}).catch(fallback);
+}else fallback();
+}
+function xmlEsc(v){return String(v==null?'':v).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');}
+function utf8(s){return new TextEncoder().encode(s);}
+function joinBytes(parts){var len=0;parts.forEach(function(p){len+=p.length;});var out=new Uint8Array(len),at=0;parts.forEach(function(p){out.set(p,at);at+=p.length;});return out;}
+function le16(n){return [n&255,(n>>>8)&255];}
+function le32(n){return [n&255,(n>>>8)&255,(n>>>16)&255,(n>>>24)&255];}
+function zipStore(files){
+var table=[];for(var ti=0;ti<256;ti++){var tc=ti;for(var tj=0;tj<8;tj++)tc=(tc&1)?(0xedb88320^(tc>>>1)):(tc>>>1);table[ti]=tc>>>0;}
+function crc32(data){var c=0xffffffff;for(var i=0;i<data.length;i++)c=table[(c^data[i])&255]^(c>>>8);return (c^0xffffffff)>>>0;}
+var local=[],central=[],offset=0;
+files.forEach(function(f){
+var name=utf8(f[0]),data=utf8(f[1]),crc=crc32(data),date=0x21;
+var lh=joinBytes([new Uint8Array(le32(0x04034b50)),new Uint8Array(le16(20)),new Uint8Array(le16(0x0800)),new Uint8Array(le16(0)),new Uint8Array(le16(0)),new Uint8Array(le16(date)),new Uint8Array(le32(crc)),new Uint8Array(le32(data.length)),new Uint8Array(le32(data.length)),new Uint8Array(le16(name.length)),new Uint8Array(le16(0)),name,data]);
+local.push(lh);
+var ch=joinBytes([new Uint8Array(le32(0x02014b50)),new Uint8Array(le16(20)),new Uint8Array(le16(20)),new Uint8Array(le16(0x0800)),new Uint8Array(le16(0)),new Uint8Array(le16(0)),new Uint8Array(le16(date)),new Uint8Array(le32(crc)),new Uint8Array(le32(data.length)),new Uint8Array(le32(data.length)),new Uint8Array(le16(name.length)),new Uint8Array(le16(0)),new Uint8Array(le16(0)),new Uint8Array(le16(0)),new Uint8Array(le16(0)),new Uint8Array(le32(0)),new Uint8Array(le32(offset)),name]);
+central.push(ch);offset+=lh.length;
+});
+var centralBytes=joinBytes(central),end=joinBytes([new Uint8Array(le32(0x06054b50)),new Uint8Array(le16(0)),new Uint8Array(le16(0)),new Uint8Array(le16(files.length)),new Uint8Array(le16(files.length)),new Uint8Array(le32(centralBytes.length)),new Uint8Array(le32(offset)),new Uint8Array(le16(0))]);
+return joinBytes(local.concat([centralBytes,end]));
+}
+function excelCol(n){var s='';while(n){var r=(n-1)%26;s=String.fromCharCode(65+r)+s;n=Math.floor((n-1)/26);}return s;}
+function excelDate(v){var m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(v||''));if(!m)return null;var d=new Date(Date.UTC(+m[1],+m[2]-1,+m[3]));if(d.getUTCFullYear()!==+m[1]||d.getUTCMonth()!==+m[2]-1||d.getUTCDate()!==+m[3])return null;return d.getTime()/86400000+25569;}
+function exportXlsx(rows,name){
+var sorted=rows.slice().sort(function(a,b){return (a.date+(a.time||''))<(b.date+(b.time||''))?-1:1;});
+var headers=['Date','Time','Financial year','Trip type','From client','From address','To client','To address','Purpose','Odometer start','Odometer end','Km','Rate per km ($)','Claim ($)'];
+var dataRows=sorted.map(function(t){return [t.date,t.time||'',fyOf(t.date),t.type||'No type set',t.from,t.fromAddr,t.to,t.toAddr,t.note,t.odoStart==null?'':t.odoStart,t.odoEnd==null?'':t.odoEnd,Number(t.km.toFixed(1)),Number(S.rate),(Number(t.km)*Number(S.rate)).toFixed(2)];});
+function cell(v,col,row){var ref=excelCol(col+1)+row;if(row===1)return '<c r="'+ref+'" s="1" t="inlineStr"><is><t xml:space="preserve">'+xmlEsc(v)+'</t></is></c>';
+if(v===''||v==null)return '<c r="'+ref+'"/>';
+if(col===0){var serial=excelDate(v);if(serial!==null)return '<c r="'+ref+'" s="2"><v>'+serial+'</v></c>';}
+if((col===9||col===10||col===11||col===12||col===13)&&isFinite(Number(v))){var style=col===11?' s="3"':(col===12||col===13?' s="4"':'');return '<c r="'+ref+'"'+style+'><v>'+Number(v)+'</v></c>';}
+return '<c r="'+ref+'" t="inlineStr"><is><t xml:space="preserve">'+xmlEsc(v)+'</t></is></c>';}
+var rowsXml='<row r="1">'+headers.map(function(v,i){return cell(v,i,1);}).join('')+'</row>';
+dataRows.forEach(function(r,i){var n=i+2;rowsXml+='<row r="'+n+'">'+r.map(function(v,j){return cell(v,j,n);}).join('')+'</row>';});
+var last=dataRows.length+1,filter='A1:N'+last;
+var sheet='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><dimension ref="A1:N'+last+'"/><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A2" sqref="A2"/></sheetView></sheetViews><cols><col min="1" max="1" width="13" customWidth="1"/><col min="2" max="2" width="10" customWidth="1"/><col min="3" max="3" width="15" customWidth="1"/><col min="4" max="4" width="24" customWidth="1"/><col min="5" max="5" width="22" customWidth="1"/><col min="6" max="6" width="32" customWidth="1"/><col min="7" max="7" width="22" customWidth="1"/><col min="8" max="8" width="32" customWidth="1"/><col min="9" max="9" width="35" customWidth="1"/><col min="10" max="11" width="16" customWidth="1"/><col min="12" max="12" width="10" customWidth="1"/><col min="13" max="14" width="16" customWidth="1"/></cols><sheetData>'+rowsXml+'</sheetData><autoFilter ref="'+filter+'"/></worksheet>';
+var files=[
+['[Content_Types].xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>'],
+['_rels/.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'],
+['xl/workbook.xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Trips" sheetId="1" r:id="rId1"/></sheets></workbook>'],
+['xl/_rels/workbook.xml.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>'],
+['xl/styles.xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="3"><numFmt numFmtId="164" formatCode="yyyy-mm-dd"/><numFmt numFmtId="165" formatCode="0.0"/><numFmt numFmtId="166" formatCode="0.00"/></numFmts><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="5"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="166" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>'],
+['xl/worksheets/sheet1.xml',sheet]
+];
+try{localStorage.setItem('kmLogbookLastBackup',String(Date.now()));}catch(e){}
+var blob=new Blob([zipStore(files)],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(url);},1000);
+}
+$('expFY').onclick=function(){exportXlsx(tripsFor(selFY()),'km-logbook-'+selFY()+'.xlsx');};
+$('expMo').onclick=function(){var mo=$('moSel').value||'all';exportXlsx(shownTrips(tripsFor(selFY())),'km-logbook-'+(mo==='all'?selFY():mo)+'.xlsx');};
+$('expAll').onclick=function(){exportXlsx(S.trips,'km-logbook-all.xlsx');};
+
+/* Merge another copy of the logbook (from Drive or a backup file) into this one */
+function merge(r){
+if(!r)return;
+var k,del={};
+[S.deleted,r.deleted||{}].forEach(function(o){for(k in o)del[k]=1;});
+S.deleted=del;
+var byId={};
+S.trips.concat(r.trips||[]).forEach(function(t){
+if(del[String(t.id)])return;
+if(t.type==='Between jobs with clients')t.type=TYPES[2];
+var c=byId[t.id];
+if(!c||(t.mod||0)>(c.mod||0))byId[t.id]=t;
+});
+S.trips=Object.keys(byId).map(function(i){return byId[i];});
+var tomb={};
+[S.delClients,r.delClients||{}].forEach(function(o){for(k in o)tomb[k]=Math.max(tomb[k]||0,o[k]);});
+S.delClients=tomb;
+var cm={};
+S.clients.concat(r.clients||[]).forEach(function(c){
+var key=(c.name||'').toLowerCase();if(!key)return;
+if((key in tomb)&&!((c.mod||0)>tomb[key]))return;
+var o=cm[key];
+if(!o||(c.mod||0)>(o.mod||0))cm[key]=c;
+});
+S.clients=Object.keys(cm).map(function(x){return cm[x];});
+if((r.rateAt||0)>S.rateAt&&typeof r.rate==='number'){S.rate=r.rate;S.rateAt=r.rateAt;$('rate').value=S.rate;}
+}
+
+/* Manual backup file */
+$('bkDl').onclick=function(){saveFile('km-logbook-backup-'+today()+'.json',JSON.stringify(S,null,1),'application/json',false);};
+$('bkUp').onchange=function(){
+var f=this.files&&this.files[0];if(!f)return;
+var rd=new FileReader();
+rd.onload=function(){
+try{var o=JSON.parse(rd.result);if(!o||!o.trips)throw new Error('bad');merge(o);save();render();alert('Backup restored and merged. This logbook now has '+S.trips.length+' trips.');}
+catch(e){alert('That file is not a logbook backup.');}
+};
+rd.readAsText(f);this.value='';
+};
+
+if('serviceWorker' in navigator&&location.protocol==='https:'){
+window.addEventListener('load',function(){navigator.serviceWorker.register('./service-worker.js').catch(function(){});});
+}
+if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();
+render();
+idbGet(function(v){try{var o=v&&JSON.parse(v);if(o&&o.trips){merge(o);save();render();}}catch(e){}});
+})();
+</script>
+</body>
+</html>

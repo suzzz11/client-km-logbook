@@ -45,6 +45,12 @@ td.wrap{white-space:normal;min-width:140px}
 .warn{color:var(--danger);font-size:.85rem;margin-top:8px}
 h3.sub{margin:22px 0 8px;font-size:1rem}
 #export input[type=file]{padding:9px}
+.seg{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px}
+.seg button{flex:1;min-height:44px;border:1px solid var(--line);background:var(--bg);color:var(--text);padding:8px 10px;border-radius:10px;cursor:pointer;font:inherit;font-size:.9rem}
+.seg button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.form{display:none}.form.on{display:block}
+textarea{min-height:60px}
+a{color:var(--accent)}
 
 @media (max-width:700px){
 body{-webkit-text-size-adjust:100%}
@@ -68,7 +74,7 @@ nav button.on{background:var(--accent);color:#fff}
 <body>
 <header>
 <h1>Client Km Logbook</h1>
-<p>Record your client km, travel between clients and travel between jobs, then export to Excel for your tax return.</p>
+<p>Record travel with clients, travel between clients and private travel, then export to Excel for your tax return.</p>
 </header>
 <nav id="nav">
 <button data-s="dash" class="on">Summary</button>
@@ -87,8 +93,8 @@ nav button.on{background:var(--accent);color:#fff}
 </div>
 <div class="grid">
 <div class="stat"><b id="sFY">-</b><span>Selected period</span></div>
-<div class="stat"><b id="sKm">0</b><span>Km travelled</span></div>
-<div class="stat"><b id="sAmt">$0.00</b><span>Estimated claim</span></div>
+<div class="stat"><b id="sKm">0</b><span>Work km</span></div>
+<div class="stat"><b id="sAmt">$0.00</b><span>Estimated claim (work km only)</span></div>
 <div class="stat"><b id="sTrips">0</b><span>Trips recorded</span></div>
 </div>
 <h3 class="sub">Km by trip type (selected period)</h3>
@@ -96,14 +102,15 @@ nav button.on{background:var(--accent);color:#fff}
 <div class="stat"><b id="sWith">0 km</b><span>With client</span></div>
 <div class="stat"><b id="sBetC">0 km</b><span>Between clients</span></div>
 <div class="stat"><b id="sBetJ">0 km</b><span>Travel between jobs</span></div>
+<div class="stat"><b id="sPriv">0 km</b><span>Private travel (not claimed)</span></div>
 </div>
 <div id="capWarn" class="warn"></div>
 <div id="bkWarn" class="warn"></div>
 <h3 class="sub">Month by month</h3>
-<div class="scroll"><table><thead><tr><th>Month</th><th>With client</th><th>Between clients</th><th>Travel between jobs</th><th>Total km</th><th>Claim</th></tr></thead><tbody id="mBody"></tbody></table></div>
+<div class="scroll"><table><thead><tr><th>Month</th><th>With client</th><th>Between clients</th><th>Travel between jobs</th><th>Work km</th><th>Private km</th><th>Claim</th></tr></thead><tbody id="mBody"></tbody></table></div>
 <h3 class="sub">Day by day</h3>
 <p id="dailyCaption" class="note"></p>
-<div class="scroll"><table><thead><tr><th>Date</th><th>Trips</th><th>Total km</th><th>Estimated claim</th></tr></thead><tbody id="dBody"></tbody></table></div>
+<div class="scroll"><table><thead><tr><th>Date</th><th>Trips</th><th>Work km</th><th>Private km</th><th>Estimated claim</th></tr></thead><tbody id="dBody"></tbody></table></div>
 <div style="max-width:240px;margin-top:16px">
 <label for="rate">Rate per km ($)</label>
 <input id="rate" type="number" step="0.01" min="0" value="0.88">
@@ -113,24 +120,69 @@ nav button.on{background:var(--accent);color:#fff}
 
 <section id="add">
 <h2>Add a trip</h2>
-<div class="grid">
-<div><label>Date (blank = today)</label><input id="tDate" type="date"></div>
-<div><label>Time (blank = now)</label><input id="tTime" type="time"></div>
-<div><label>Trip type</label><select id="tType"><option>With client</option><option>Between clients</option><option>Travel between jobs</option></select></div>
-<div><label>From (client)</label><input id="tFrom" list="clientList" placeholder="Client A"></div>
-<div><label>From address</label><input id="tFromAddr"></div>
-<div><label>To (client)</label><input id="tTo" list="clientList" placeholder="Client B"></div>
-<div><label>To address</label><input id="tToAddr"></div>
-<div><label>Odometer start (car)</label><input id="tOdoS" type="number" step="0.1" min="0"></div>
-<div><label>Odometer end (car, at arrival)</label><input id="tOdoE" type="number" step="0.1" min="0"></div>
-<div><label>Km travelled (worked out for you)</label><input id="tKm" type="number" step="0.1" min="0"></div>
+<div class="seg" id="seg">
+<button data-f="fWith" class="on">With client</button>
+<button data-f="fBet">Between clients</button>
+<button data-f="fPriv">Private travel</button>
 </div>
-<div id="odoMsg" class="warn"></div>
-<div style="margin-top:12px"><label>Purpose / notes</label><input id="tNote" placeholder="e.g. Client visit"></div>
 <datalist id="clientList"></datalist>
-<button class="btn" id="addTrip">Save trip</button>
-<button class="btn alt" id="chain">Save and start next leg from this client</button>
-<p class="note">Leave the date or time blank and it records when you save. Type your odometer start and end and the km is worked out for you. If you forgot the start reading, enter the end reading and the km, and the start is worked out (end minus km). If you only have the start and km, the end is worked out. Calculated readings show a * in the log. For A to B to C to D, save each leg as its own trip. The second button copies the "To" client and the end odometer into the next leg.</p>
+
+<div class="form on" id="fWith">
+<h3 class="sub">Travel with client</h3>
+<div class="grid">
+<div><label for="wDate">Date (blank = today)</label><input id="wDate" type="date"></div>
+<div><label for="wTime">Time (blank = now)</label><input id="wTime" type="time"></div>
+<div><label for="wClient">Client name</label><input id="wClient" list="clientList" autocomplete="off" placeholder="Pick or type a name"></div>
+<div><label for="wAddr">Client address</label><input id="wAddr" autocomplete="off"></div>
+<div><label for="wOdoS">Odometer start</label><input id="wOdoS" type="number" inputmode="decimal" step="0.1" min="0"></div>
+<div><label for="wOdoE">Odometer end</label><input id="wOdoE" type="number" inputmode="decimal" step="0.1" min="0"></div>
+<div><label for="wKm">Km travelled</label><input id="wKm" type="number" inputmode="decimal" step="0.1" min="0"></div>
+</div>
+<div id="wMsg" class="warn"></div>
+<div style="margin-top:12px"><label for="wNote">Remarks</label><textarea id="wNote" rows="2" placeholder="e.g. Took client to appointment"></textarea></div>
+<button class="btn" id="wSave">Save travel with client</button>
+<p class="note">Enter the odometer start and end, or just the km travelled. A new client name is added to your Clients list when you save.</p>
+</div>
+
+<div class="form" id="fBet">
+<h3 class="sub">Travel between clients</h3>
+<div class="grid">
+<div><label for="bDate">Date (blank = today)</label><input id="bDate" type="date"></div>
+<div><label for="bTime">Time (blank = now)</label><input id="bTime" type="time"></div>
+<div><label for="bC1">Client 1 (from)</label><input id="bC1" list="clientList" autocomplete="off" placeholder="Pick or type a name"></div>
+<div><label for="bA1">Client 1 address</label><input id="bA1" autocomplete="off"></div>
+<div><label for="bC2">Client 2 (to)</label><input id="bC2" list="clientList" autocomplete="off" placeholder="Pick or type a name"></div>
+<div><label for="bA2">Client 2 address</label><input id="bA2" autocomplete="off"></div>
+</div>
+<p class="note"><a id="bMap" href="#" target="_blank" rel="noopener">Check the route in Google Maps</a></p>
+<div class="grid">
+<div><label for="bOdoS">Odometer start</label><input id="bOdoS" type="number" inputmode="decimal" step="0.1" min="0"></div>
+<div><label for="bOdoE">Odometer end</label><input id="bOdoE" type="number" inputmode="decimal" step="0.1" min="0"></div>
+<div><label for="bKm">Km travelled</label><input id="bKm" type="number" inputmode="decimal" step="0.1" min="0"></div>
+</div>
+<div id="bMsg" class="warn"></div>
+<div style="margin-top:12px"><label for="bNote">Remarks</label><textarea id="bNote" rows="2" placeholder="e.g. Morning visit to afternoon visit"></textarea></div>
+<button class="btn" id="bSave">Save travel between clients</button>
+<button class="btn alt" id="bChain">Save and start next leg from Client 2</button>
+<p class="note">Saved clients fill in their address for you. Enter the odometer start and end, or just the km you actually drove.</p>
+</div>
+
+<div class="form" id="fPriv">
+<h3 class="sub">Private travel</h3>
+<div class="grid">
+<div><label for="pDate">Date (blank = today)</label><input id="pDate" type="date"></div>
+<div><label for="pTime">Time (blank = now)</label><input id="pTime" type="time"></div>
+<div><label for="pOdoS">Odometer start</label><input id="pOdoS" type="number" inputmode="decimal" step="0.1" min="0"></div>
+<div><label for="pOdoE">Odometer end</label><input id="pOdoE" type="number" inputmode="decimal" step="0.1" min="0"></div>
+<div><label for="pKm">Km travelled</label><input id="pKm" type="number" inputmode="decimal" step="0.1" min="0"></div>
+</div>
+<div id="pMsg" class="warn"></div>
+<div style="margin-top:12px"><label for="pNote">Remarks</label><textarea id="pNote" rows="2" placeholder="e.g. Shopping, home trip"></textarea></div>
+<button class="btn" id="pSave">Save private travel</button>
+<p class="note">Private km is recorded and exported, but it is not counted in your work claim.</p>
+</div>
+
+<p class="note">Leave the date or time blank and it records when you save. If you enter only one odometer reading plus the km, the other reading is worked out (shown with a * in the log).</p>
 </section>
 
 <section id="clients">
@@ -149,7 +201,7 @@ nav button.on{background:var(--accent);color:#fff}
 <div><label>Show financial year</label><select id="fySel"></select></div>
 <div><label>Show month</label><select id="moSel"></select></div>
 </div>
-<div class="scroll"><table><thead><tr><th>Date</th><th>Time</th><th>Type</th><th>From</th><th>To</th><th>Purpose</th><th>Odometer</th><th>Km</th><th>Claim</th><th></th></tr></thead><tbody id="lBody"></tbody></table></div>
+<div class="scroll"><table><thead><tr><th>Date</th><th>Time</th><th>Type</th><th>From</th><th>To</th><th>Remarks</th><th>Odometer</th><th>Km</th><th>Claim</th><th></th></tr></thead><tbody id="lBody"></tbody></table></div>
 <p id="lTotal" class="note"></p>
 </section>
 
@@ -175,7 +227,7 @@ nav button.on{background:var(--accent);color:#fff}
 <script>
 (function(){
 var KEY='kmLogbookV1';
-var TYPES=['With client','Between clients','Travel between jobs'];
+var TYPES=['With client','Between clients','Travel between jobs','Private travel'];
 var TITLES=['KM WITH CLIENT','KM BETWEEN CLIENTS','TRAVEL BETWEEN JOBS'];
 var S={clients:[],trips:[],rate:0.88,rateAt:0,deleted:{},delClients:{}};
 try{var raw=localStorage.getItem(KEY);if(raw){var p=JSON.parse(raw);if(p&&p.trips)S=p;}}catch(e){}
@@ -208,10 +260,19 @@ b.classList.add('on');$(b.dataset.s).classList.add('on');render();window.scrollT
 $('rate').value=S.rate;
 $('rate').onchange=function(){S.rate=parseFloat(this.value)||0;S.rateAt=Date.now();save();render();};
 
+/* Add trip: three forms on one page */
+document.querySelectorAll('#seg button').forEach(function(b){
+b.onclick=function(){
+document.querySelectorAll('#seg button').forEach(function(x){x.classList.remove('on');});
+document.querySelectorAll('#add .form').forEach(function(x){x.classList.remove('on');});
+b.classList.add('on');$(b.dataset.f).classList.add('on');};
+});
+
 function fillAddr(nameId,addrId){
-$(nameId).onchange=function(){var c=findClient(this.value);if(c)$(addrId).value=c.address;};
+var f=function(){var c=findClient($(nameId).value);if(c&&c.address){$(addrId).value=c.address;updMap();}};
+$(nameId).addEventListener('input',f);$(nameId).addEventListener('change',f);
 }
-fillAddr('tFrom','tFromAddr');fillAddr('tTo','tToAddr');
+fillAddr('wClient','wAddr');fillAddr('bC1','bA1');fillAddr('bC2','bA2');
 
 function ensureClient(name,addr){
 name=(name||'').trim();if(!name)return;
@@ -221,48 +282,83 @@ else if(!c.address&&addr){c.address=addr.trim();c.mod=Date.now();}
 }
 
 /* Odometer: km is worked out as you type */
-function autoKm(){
-var os=parseFloat($('tOdoS').value),oe=parseFloat($('tOdoE').value);
+function autoKm(pre){
+var os=parseFloat($(pre+'OdoS').value),oe=parseFloat($(pre+'OdoE').value);
 var both=!isNaN(os)&&!isNaN(oe);
-$('tKm').readOnly=both;
-$('odoMsg').textContent='';
+$(pre+'Km').readOnly=both;
+$(pre+'Msg').textContent='';
 if(both){
-if(oe>os){$('tKm').value=Math.round((oe-os)*10)/10;}
-else{$('tKm').value='';$('odoMsg').textContent='The end reading must be higher than the start reading.';}
+if(oe>os){$(pre+'Km').value=Math.round((oe-os)*10)/10;}
+else{$(pre+'Km').value='';$(pre+'Msg').textContent='The end reading must be higher than the start reading.';}
 }
 }
-$('tOdoS').oninput=autoKm;$('tOdoE').oninput=autoKm;
+['w','b','p'].forEach(function(pre){$(pre+'OdoS').oninput=function(){autoKm(pre);};$(pre+'OdoE').oninput=function(){autoKm(pre);};});
 
-function addTrip(chain){
-var km=parseFloat($('tKm').value);
-var os=parseFloat($('tOdoS').value),oe=parseFloat($('tOdoE').value);
+function readKm(pre){
+var km=parseFloat($(pre+'Km').value);
+var os=parseFloat($(pre+'OdoS').value),oe=parseFloat($(pre+'OdoE').value);
 os=isNaN(os)?null:os;oe=isNaN(oe)?null:oe;
 if(os!==null&&oe!==null){
-if(oe<=os){alert('The end odometer reading must be higher than the start reading.');return;}
+if(oe<=os){alert('The end odometer reading must be higher than the start reading.');return null;}
 km=Math.round((oe-os)*10)/10;
 }
+if(!(km>0)){alert('Please enter either the km travelled or both odometer readings.');return null;}
+km=Math.round(km*10)/10;
 var calcS=false,calcE=false;
-if(km>0){
 if(os===null&&oe!==null){os=Math.round((oe-km)*10)/10;calcS=true;}
 else if(oe===null&&os!==null){oe=Math.round((os+km)*10)/10;calcE=true;}
+return {km:km,os:os,oe:oe,calcS:calcS,calcE:calcE};
 }
-if(!$('tFrom').value.trim()||!$('tTo').value.trim()||!(km>0)){alert('Please fill in From, To, and either Km or both odometer readings.');return;}
-var trip={id:Date.now(),mod:Date.now(),date:$('tDate').value||today(),time:$('tTime').value||nowTime(),type:$('tType').value,from:$('tFrom').value.trim(),fromAddr:$('tFromAddr').value.trim(),to:$('tTo').value.trim(),toAddr:$('tToAddr').value.trim(),km:km,odoStart:os,odoEnd:oe,calcS:calcS,calcE:calcE,note:$('tNote').value.trim()};
-var prev=S.trips.filter(function(t){return t.date===trip.date&&(t.time||'')<=trip.time&&t.odoEnd==null;}).sort(function(a,b){return (a.time||'')<(b.time||'')?-1:1;}).pop();
-if(prev&&os!==null){prev.odoEnd=os;prev.calcE=true;prev.mod=Date.now();if(prev.odoStart==null){prev.odoStart=Math.round((os-prev.km)*10)/10;prev.calcS=true;}}
-ensureClient($('tFrom').value,$('tFromAddr').value);
-ensureClient($('tTo').value,$('tToAddr').value);
+
+function saveTrip(pre,type,from,fromAddr,to,toAddr){
+var k=readKm(pre);if(!k)return null;
+var trip={id:Date.now(),mod:Date.now(),date:$(pre+'Date').value||today(),time:$(pre+'Time').value||nowTime(),type:type,from:from,fromAddr:fromAddr,to:to,toAddr:toAddr,km:k.km,odoStart:k.os,odoEnd:k.oe,calcS:k.calcS,calcE:k.calcE,note:$(pre+'Note').value.trim()};
+if(type!==TYPES[3]&&k.os!==null&&!k.calcS){
+var prev=S.trips.filter(function(t){return t.type!==TYPES[3]&&t.date===trip.date&&(t.time||'')<=trip.time&&t.odoEnd==null;}).sort(function(a,b){return (a.time||'')<(b.time||'')?-1:1;}).pop();
+if(prev){prev.odoEnd=k.os;prev.calcE=true;prev.mod=Date.now();if(prev.odoStart==null){prev.odoStart=Math.round((k.os-prev.km)*10)/10;prev.calcS=true;}}
+}
 S.trips.push(trip);
-save();
-if(chain){$('tFrom').value=$('tTo').value;$('tFromAddr').value=$('tToAddr').value;$('tOdoS').value=trip.odoEnd!==null?trip.odoEnd:'';}
-else{$('tFrom').value='';$('tFromAddr').value='';$('tOdoS').value='';}
-$('tTo').value='';$('tToAddr').value='';$('tKm').value='';$('tOdoE').value='';$('tTime').value='';
-if(!chain)$('tNote').value='';
-autoKm();
-render();
+['Date','Time','OdoS','OdoE','Km','Note'].forEach(function(f){$(pre+f).value='';});
+autoKm(pre);
+return trip;
 }
-$('addTrip').onclick=function(){addTrip(false);};
-$('chain').onclick=function(){addTrip(true);};
+function done(msg){save();render();alert(msg);}
+
+$('wSave').onclick=function(){
+var n=$('wClient').value.trim(),a=$('wAddr').value.trim();
+if(!n){alert('Please enter the client name.');return;}
+var t=saveTrip('w',TYPES[0],n,a,'','');if(!t)return;
+ensureClient(n,a);
+$('wClient').value='';$('wAddr').value='';
+done('Saved: '+t.km.toFixed(1)+' km with '+n+'.');
+};
+
+function saveBetween(chain){
+var c1=$('bC1').value.trim(),a1=$('bA1').value.trim(),c2=$('bC2').value.trim(),a2=$('bA2').value.trim();
+if(!c1||!c2){alert('Please enter both Client 1 and Client 2.');return;}
+var t=saveTrip('b',TYPES[1],c1,a1,c2,a2);if(!t)return;
+ensureClient(c1,a1);ensureClient(c2,a2);
+if(chain){$('bC1').value=c2;$('bA1').value=a2;$('bOdoS').value=t.odoEnd!==null?t.odoEnd:'';}
+else{$('bC1').value='';$('bA1').value='';}
+$('bC2').value='';$('bA2').value='';updMap();
+done('Saved: '+t.km.toFixed(1)+' km from '+c1+' to '+c2+'.');
+}
+$('bSave').onclick=function(){saveBetween(false);};
+$('bChain').onclick=function(){saveBetween(true);};
+
+$('pSave').onclick=function(){
+var t=saveTrip('p',TYPES[3],'','','','');if(!t)return;
+done('Saved: '+t.km.toFixed(1)+' km private travel.');
+};
+
+/* Google Maps link to view the route (optional) */
+function updMap(){
+var a1=$('bA1').value.trim()||$('bC1').value.trim(),a2=$('bA2').value.trim()||$('bC2').value.trim();
+$('bMap').href='https://www.google.com/maps/dir/?api=1&travelmode=driving&origin='+encodeURIComponent(a1)+'&destination='+encodeURIComponent(a2);
+}
+['bA1','bA2','bC1','bC2'].forEach(function(id){$(id).addEventListener('input',updMap);});
+updMap();
+
 
 $('addClient').onclick=function(){
 var n=$('cName').value.trim();if(!n){alert('Enter a client name.');return;}
@@ -287,6 +383,9 @@ function monLabel(m){var p=m.split('-');return MN[+p[1]-1]+' '+p[0];}
 function fyMonths(fy){var y=+(fy||curFY()).slice(0,4),a=[];for(var i=0;i<12;i++){var d=new Date(y,6+i,1);a.push(d.getFullYear()+'-'+p2(d.getMonth()+1));}return a;}
 function shownTrips(tr){var mo=$('moSel').value;return !mo||mo==='all'?tr:tr.filter(function(t){return t.date.slice(0,7)===mo;});}
 function ofType(r,ty){return r.filter(function(t){return t.type===ty;});}
+function isPriv(t){return t.type===TYPES[3];}
+function workKm(r){return kmOf(r.filter(function(t){return !isPriv(t);}));}
+function privKm(r){return kmOf(r.filter(isPriv));}
 
 function render(){
 var list=fys(),cur=$('fySel').value,dashCur=$('dashFY').value;
@@ -306,12 +405,12 @@ $('dashMo').value=dashMonths.indexOf(dashMonth)>-1?dashMonth:'all';
 dashMonth=$('dashMo').value;
 var periodTrips=dashMonth==='all'?dashYearTrips:dashYearTrips.filter(function(t){return t.date.slice(0,7)===dashMonth;});
 var periodLabel=dashMonth==='all'?'Financial year '+dashFY:monLabel(dashMonth);
-var periodKm=kmOf(periodTrips),yearKm=kmOf(dashYearTrips);
-$('mBody').innerHTML=dashMonths.map(function(m){var r=dashYearTrips.filter(function(t){return t.date.slice(0,7)===m;});return '<tr><td>'+monLabel(m)+'</td><td>'+kmOf(ofType(r,TYPES[0])).toFixed(1)+'</td><td>'+kmOf(ofType(r,TYPES[1])).toFixed(1)+'</td><td>'+kmOf(ofType(r,TYPES[2])).toFixed(1)+'</td><td>'+kmOf(r).toFixed(1)+'</td><td>'+money(kmOf(r)*S.rate)+'</td></tr>';}).join('');
-var byDay={};periodTrips.forEach(function(t){if(!byDay[t.date])byDay[t.date]={trips:0,km:0};byDay[t.date].trips++;byDay[t.date].km+=t.km;});
+var periodKm=workKm(periodTrips),yearKm=workKm(dashYearTrips);
+$('mBody').innerHTML=dashMonths.map(function(m){var r=dashYearTrips.filter(function(t){return t.date.slice(0,7)===m;});return '<tr><td>'+monLabel(m)+'</td><td>'+kmOf(ofType(r,TYPES[0])).toFixed(1)+'</td><td>'+kmOf(ofType(r,TYPES[1])).toFixed(1)+'</td><td>'+kmOf(ofType(r,TYPES[2])).toFixed(1)+'</td><td>'+workKm(r).toFixed(1)+'</td><td>'+privKm(r).toFixed(1)+'</td><td>'+money(workKm(r)*S.rate)+'</td></tr>';}).join('');
+var byDay={};periodTrips.forEach(function(t){if(!byDay[t.date])byDay[t.date]={trips:0,km:0,pk:0};byDay[t.date].trips++;if(isPriv(t))byDay[t.date].pk+=t.km;else byDay[t.date].km+=t.km;});
 var days=Object.keys(byDay).sort();
  $('dailyCaption').textContent='Daily totals for '+periodLabel+'.';
-$('dBody').innerHTML=days.map(function(d){var x=byDay[d];return '<tr><td>'+d+'</td><td>'+x.trips+'</td><td>'+x.km.toFixed(1)+'</td><td>'+money(x.km*S.rate)+'</td></tr>';}).join('')||'<tr><td colspan="4">No trips recorded in this period.</td></tr>';
+$('dBody').innerHTML=days.map(function(d){var x=byDay[d];return '<tr><td>'+d+'</td><td>'+x.trips+'</td><td>'+x.km.toFixed(1)+'</td><td>'+x.pk.toFixed(1)+'</td><td>'+money(x.km*S.rate)+'</td></tr>';}).join('')||'<tr><td colspan="5">No trips recorded in this period.</td></tr>';
 $('sFY').textContent=periodLabel;
 $('sKm').textContent=periodKm.toFixed(1);
 $('sAmt').textContent=money(periodKm*S.rate);
@@ -319,11 +418,12 @@ $('sTrips').textContent=periodTrips.length;
 $('sWith').textContent=kmOf(ofType(periodTrips,TYPES[0])).toFixed(1)+' km';
 $('sBetC').textContent=kmOf(ofType(periodTrips,TYPES[1])).toFixed(1)+' km';
 $('sBetJ').textContent=kmOf(ofType(periodTrips,TYPES[2])).toFixed(1)+' km';
+$('sPriv').textContent=privKm(periodTrips).toFixed(1)+' km';
 $('capWarn').textContent=yearKm>5000?'Over 5,000 km in this financial year: the cents-per-km method is capped, so consider a logbook method instead.':'';
 $('cBody').innerHTML=S.clients.map(function(c,i){return '<tr><td>'+esc(c.name)+'</td><td class="wrap">'+esc(c.address)+'</td><td><button class="del" data-i="'+i+'">Delete</button></td></tr>';}).join('')||'<tr><td colspan="3">No clients yet.</td></tr>';
 $('clientList').innerHTML=S.clients.map(function(c){return '<option value="'+esc(c.name)+'">';}).join('');
-$('lBody').innerHTML=shown.map(function(t){return '<tr><td data-l="Date">'+t.date+'</td><td data-l="Time">'+esc(t.time||'')+'</td><td data-l="Type">'+esc(t.type||'')+'</td><td data-l="From">'+esc(t.from)+'<br><small>'+esc(t.fromAddr)+'</small></td><td data-l="To">'+esc(t.to)+'<br><small>'+esc(t.toAddr)+'</small></td><td data-l="Purpose">'+esc(t.note)+'</td><td data-l="Odometer">'+odoTxt(t)+'</td><td data-l="Km">'+t.km.toFixed(1)+'</td><td data-l="Claim">'+money(t.km*S.rate)+'</td><td><button class="del" data-t="'+t.id+'">Delete</button></td></tr>';}).join('')||'<tr><td colspan="10">No trips for this year.</td></tr>';
-$('lTotal').textContent='Total shown: '+sk.toFixed(1)+' km, '+money(sk*S.rate)+'.  * = odometer reading calculated from km travelled';
+$('lBody').innerHTML=shown.map(function(t){return '<tr><td data-l="Date">'+t.date+'</td><td data-l="Time">'+esc(t.time||'')+'</td><td data-l="Type">'+esc(t.type||'')+'</td><td data-l="From">'+(esc(t.from)||'-')+'<br><small>'+esc(t.fromAddr)+'</small></td><td data-l="To">'+(esc(t.to)||'-')+'<br><small>'+esc(t.toAddr)+'</small></td><td data-l="Remarks">'+esc(t.note)+'</td><td data-l="Odometer">'+odoTxt(t)+'</td><td data-l="Km">'+t.km.toFixed(1)+'</td><td data-l="Claim">'+(isPriv(t)?'Not claimed':money(t.km*S.rate))+'</td><td><button class="del" data-t="'+t.id+'">Delete</button></td></tr>';}).join('')||'<tr><td colspan="10">No trips for this year.</td></tr>';
+var swk=workKm(shown);$('lTotal').textContent='Total shown: '+swk.toFixed(1)+' work km ('+money(swk*S.rate)+') and '+privKm(shown).toFixed(1)+' private km.  * = odometer reading calculated from km travelled';
 var lb=0;try{lb=+localStorage.getItem('kmLogbookLastBackup')||0;}catch(e){}
 var ago=Math.floor((Date.now()-lb)/864e5);
 $('bkWarn').textContent=S.trips.length&&(!lb||ago>=7)?(lb?'Your last backup was '+ago+' days ago. ':'You have not saved a backup file yet. ')+'Open Export & backup and download a backup file to keep your trips safe.':'';
@@ -367,8 +467,8 @@ function excelCol(n){var s='';while(n){var r=(n-1)%26;s=String.fromCharCode(65+r
 function excelDate(v){var m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(v||''));if(!m)return null;var d=new Date(Date.UTC(+m[1],+m[2]-1,+m[3]));if(d.getUTCFullYear()!==+m[1]||d.getUTCMonth()!==+m[2]-1||d.getUTCDate()!==+m[3])return null;return d.getTime()/86400000+25569;}
 function exportXlsx(rows,name){
 var sorted=rows.slice().sort(function(a,b){return (a.date+(a.time||''))<(b.date+(b.time||''))?-1:1;});
-var headers=['Date','Time','Financial year','Trip type','From client','From address','To client','To address','Purpose','Odometer start','Odometer end','Km','Rate per km ($)','Claim ($)'];
-var dataRows=sorted.map(function(t){return [t.date,t.time||'',fyOf(t.date),t.type||'No type set',t.from,t.fromAddr,t.to,t.toAddr,t.note,t.odoStart==null?'':t.odoStart,t.odoEnd==null?'':t.odoEnd,Number(t.km.toFixed(1)),Number(S.rate),(Number(t.km)*Number(S.rate)).toFixed(2)];});
+var headers=['Date','Time','Financial year','Trip type','From client','From address','To client','To address','Remarks','Odometer start','Odometer end','Km','Rate per km ($)','Claim ($)'];
+var dataRows=sorted.map(function(t){return [t.date,t.time||'',fyOf(t.date),t.type||'No type set',t.from,t.fromAddr,t.to,t.toAddr,t.note,t.odoStart==null?'':t.odoStart,t.odoEnd==null?'':t.odoEnd,Number(t.km.toFixed(1)),isPriv(t)?'':Number(S.rate),isPriv(t)?'':(Number(t.km)*Number(S.rate)).toFixed(2)];});
 function cell(v,col,row){var ref=excelCol(col+1)+row;if(row===1)return '<c r="'+ref+'" s="1" t="inlineStr"><is><t xml:space="preserve">'+xmlEsc(v)+'</t></is></c>';
 if(v===''||v==null)return '<c r="'+ref+'"/>';
 if(col===0){var serial=excelDate(v);if(serial!==null)return '<c r="'+ref+'" s="2"><v>'+serial+'</v></c>';}
@@ -455,12 +555,12 @@ for(var i=0;i<relNodes.length;i++)if(relNodes[i].getAttribute('Id')===rid){targe
 if(!target)throw new Error('The Excel worksheet link could not be read.');
 var sheetPath=pathJoin('xl/workbook.xml',target),shared=[],ss=await zip.textPart('xl/sharedStrings.xml',true);if(ss){var ssDoc=xmlPart(ss,'shared strings'),items=ssDoc.getElementsByTagNameNS(ns,'si');for(var si=0;si<items.length;si++)shared.push(xmlTextNodes(items[si]));}
 var sheetDoc=xmlPart(await zip.textPart(sheetPath),'worksheet'),matrix=xmlCells(sheetDoc,shared),headerAt=-1,cols={};
-var aliases={date:['date','tripdate'],time:['time','triptime'],type:['triptype','type'],from:['fromclient','from'],fromAddr:['fromaddress','fromaddr'],to:['toclient','to'],toAddr:['toaddress','toaddr'],note:['purpose','notes','reason'],odoStart:['odometerstart','startodometer'],odoEnd:['odometerend','endodometer'],km:['km','kilometres','kilometers','distancekm'],rate:['rateperkm','rateperkilometre','rateperkilometer']};
+var aliases={date:['date','tripdate'],time:['time','triptime'],type:['triptype','type'],from:['fromclient','from'],fromAddr:['fromaddress','fromaddr'],to:['toclient','to'],toAddr:['toaddress','toaddr'],note:['remarks','purpose','notes','reason'],odoStart:['odometerstart','startodometer'],odoEnd:['odometerend','endodometer'],km:['km','kilometres','kilometers','distancekm'],rate:['rateperkm','rateperkilometre','rateperkilometer']};
 for(var hr=0;hr<Math.min(matrix.length,30);hr++){var found={};Object.keys(aliases).forEach(function(k){found[k]=findColumn(matrix[hr]||[],aliases[k]);});if(found.date>=0&&found.km>=0&&(found.type>=0||found.from>=0||found.to>=0||found.note>=0)){headerAt=hr;cols=found;break;}}
 if(headerAt<0)throw new Error('This workbook does not contain the logbook columns. Choose an .xlsx file exported by Client KM Logbook.');
 var trips=[],rates=[],clientMap={};
 for(var ri=headerAt+1;ri<matrix.length;ri++){var row=matrix[ri]||[],date=xlsxDate(row[cols.date]),km=xlsxNumber(row[cols.km]);if(!date||km==null)continue;
-var typ=cols.type>=0?String(row[cols.type]||'').trim():'',low=typ.toLowerCase();if(low.indexOf('between client')>=0)typ=TYPES[1];else if(low.indexOf('travel between jobs')>=0||low.indexOf('between jobs')>=0)typ=TYPES[2];else if(low.indexOf('with client')>=0)typ=TYPES[0];
+var typ=cols.type>=0?String(row[cols.type]||'').trim():'',low=typ.toLowerCase();if(low.indexOf('private')>=0)typ=TYPES[3];else if(low.indexOf('between client')>=0)typ=TYPES[1];else if(low.indexOf('travel between jobs')>=0||low.indexOf('between jobs')>=0)typ=TYPES[2];else if(low.indexOf('with client')>=0)typ=TYPES[0];
 var trip={date:date,time:cols.time>=0?xlsxTime(row[cols.time]):'',type:typ||'No type set',from:cols.from>=0?String(row[cols.from]||'').trim():'',fromAddr:cols.fromAddr>=0?String(row[cols.fromAddr]||'').trim():'',to:cols.to>=0?String(row[cols.to]||'').trim():'',toAddr:cols.toAddr>=0?String(row[cols.toAddr]||'').trim():'',note:cols.note>=0?String(row[cols.note]||'').trim():'',odoStart:cols.odoStart>=0?xlsxNumber(row[cols.odoStart]):null,odoEnd:cols.odoEnd>=0?xlsxNumber(row[cols.odoEnd]):null,km:Math.round(km*10)/10,calcS:false,calcE:false};
 [[trip.from,trip.fromAddr],[trip.to,trip.toAddr]].forEach(function(pair){var name=String(pair[0]||'').trim(),key=name.toLowerCase();if(name&&(!clientMap[key]||(!clientMap[key].address&&pair[1])))clientMap[key]={name:name,address:pair[1]||'',mod:0};});
 if(cols.rate>=0){var rate=xlsxNumber(row[cols.rate]);if(rate!=null)rates.push({date:date,rate:rate});}trips.push(trip);
